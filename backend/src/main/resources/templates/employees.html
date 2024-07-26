@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Employees Management</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+<div class="container mt-4">
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Management Panel</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="/departments/manage">Departments</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/employees/manage">Employees</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Form to hire a new employee -->
+    <div class="mb-4">
+        <h2>Hire Employee</h2>
+        <form th:action="@{/employees}" method="post">
+            <div class="form-group">
+                <label for="employeeName">Employee Name:</label>
+                <input type="text" id="employeeName" name="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="employeeDepartmentId">Department ID:</label>
+                <input type="number" id="employeeDepartmentId" name="departmentId" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="employeeHiredAt">Hired Date:</label>
+                <input type="date" id="employeeHiredAt" name="hiredAt" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Hire Employee</button>
+        </form>
+    </div>
+
+    <<!-- Form to dismiss an employee -->
+    <div class="mb-4">
+        <h2>Dismiss Employee</h2>
+        <form th:action="@{/employees}" method="post">
+            <div class="form-group">
+                <label for="dismissEmployeeId">Employee ID:</label>
+                <input type="number" id="dismissEmployeeId" name="employeeId" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-danger">Dismiss Employee</button>
+        </form>
+    </div>
+
+    <!-- Form to view employees -->
+    <div class="mb-4">
+        <h2>View Employees</h2>
+        <form th:action="@{/employees/employees}" method="get">
+            <div class="form-group">
+                <label for="viewEmployeeId">Employee ID (optional):</label>
+                <input type="number" id="viewEmployeeId" name="employeeId" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="viewDepartmentId">Department ID (optional):</label>
+                <input type="number" id="viewDepartmentId" name="departmentId" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="viewStartDate">Start Date (optional):</label>
+                <input type="date" id="viewStartDate" name="startDate" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="viewEndDate">End Date (optional):</label>
+                <input type="date" id="viewEndDate" name="endDate" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary">View Employees</button>
+        </form>
+    </div>
+
+    <!-- Displaying employees list -->
+    <div>
+        <h2>Employees List</h2>
+        <table class="table table-bordered">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Department ID</th>
+                <th>Hired At</th>
+                <th>Dismissed At</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="employee : ${employees}">
+                <td th:text="${employee.id}"></td>
+                <td th:text="${employee.name}"></td>
+                <td th:text="${employee.departmentId}"></td>
+                <td th:text="${employee.hiredAt}"></td>
+                <td th:text="${employee.dismissedAt}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: ${POSTGRES_DATABASE_URL}
+    username: ${POSTGRES_DATABASE_USERNAME}
+    password: ${POSTGRES_DATABASE_PASSWORD}
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+logging:
+  level:
+    org:
+      springframework.web: DEBUG
+server:
+  port: 8081
+

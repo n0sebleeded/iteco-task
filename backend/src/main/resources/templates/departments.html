@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Departments Management</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+<div class="container mt-4">
+    <!-- Form to create a new department -->
+    <div class="mb-4">
+        <h2>Create Department</h2>
+        <form th:action="@{/departments}" method="post">
+            <div class="form-group">
+                <label for="name">Department Name:</label>
+                <input type="text" id="name" name="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="parentId">Parent Department ID:</label>
+                <input type="number" id="parentId" name="parentId" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary">Create Department</button>
+        </form>
+    </div>
+
+    <!-- Form to disband a department -->
+    <div class="mb-4">
+        <h2>Disband Department</h2>
+        <form th:action="@{/departments}" method="delete">
+            <div class="form-group">
+                <label for="departmentId">Department ID:</label>
+                <input type="number" id="departmentId" name="departmentId" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-danger">Disband Department</button>
+        </form>
+    </div>
+
+    <!-- Form to view departments -->
+    <div class="mb-4">
+        <h2>View Departments</h2>
+        <form th:action="@{/departments}" method="get">
+            <div class="form-group">
+                <label for="parentDepartmentId">Parent Department ID (optional):</label>
+                <input type="number" id="parentDepartmentId" name="parentDepartmentId" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="startDate">Start Date (optional):</label>
+                <input type="date" id="startDate" name="startDate" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary">View Departments</button>
+        </form>
+    </div>
+
+    <!-- Displaying departments list -->
+    <div>
+        <h2>Departments List</h2>
+        <table class="table table-bordered">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Path</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="department : ${departments}">
+                <td th:text="${department.id}"></td>
+                <td th:text="${department.name}"></td>
+                <td th:text="${department.path}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
