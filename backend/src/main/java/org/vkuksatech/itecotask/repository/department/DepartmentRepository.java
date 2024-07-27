@@ -70,21 +70,23 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
      * @return a collection of {@link Department} entities representing the hierarchical structure of departments that meet the specified date conditions.
      */
     @Query(value =
-            "WITH RECURSIVE department_tree AS ( " +
-                    "SELECT id, name, path " +
-                    "FROM department " +
-                    "WHERE created_at >= :startDate " +
-                    "AND (disbanded_at > :startDate OR disbanded_at IS NULL) " +
-                    "UNION ALL " +
-                    "SELECT d.id, d.name, d.path " +
-                    "FROM department d " +
-                    "INNER JOIN department_tree dt ON d.path <@ dt.path || '.' || d.name " +
-                    "WHERE d.created_at >= :startDate " +
-                    "AND (d.disbanded_at > :startDate OR d.disbanded_at IS NULL)) " +
-                    "SELECT * FROM department_tree",
+            "SELECT *" +
+            "FROM department " +
+            "WHERE path <@ CAST('' AS ltree) " +
+            "AND created_at <= :startDate " +
+            "AND (disbanded_at > :startDate OR disbanded_at IS NULL);",
             nativeQuery = true)
     Collection<Department> findAllDepartmentsTree(
-            @Param("startDate")
-            LocalDate startDate
+            @Param("startDate") LocalDate startDate
     );
+
+
+    @Modifying
+    @Transactional
+    @Query(value = "INSERT INTO department (created_at, disbanded_at, name, path) " +
+            "VALUES (:createdAt, :disbandedAt, :name, CAST(:path AS ltree))", nativeQuery = true)
+    void saveDepartment(@Param("createdAt") LocalDate createdAt,
+                        @Param("disbandedAt") LocalDate disbandedAt,
+                        @Param("name") String name,
+                        @Param("path") String path);
 }

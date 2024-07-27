@@ -1,5 +1,6 @@
 package org.vkuksatech.itecotask.domain.department;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -31,6 +32,7 @@ public class Department {
      * The ltree path representing the hierarchy of the department.
      * This path is used to navigate the tree structure in the database.
      */
+    @Column(nullable = false, columnDefinition = "ltree")
     private String path;
 
     private LocalDate createdAt;

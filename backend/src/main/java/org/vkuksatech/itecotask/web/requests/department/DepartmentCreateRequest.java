@@ -2,6 +2,8 @@ package org.vkuksatech.itecotask.web.requests.department;
 
 import org.vkuksatech.itecotask.domain.department.Department;
 
+import java.time.LocalDate;
+
 public record DepartmentCreateRequest(
         String name,
         Long parentId
@@ -11,6 +13,8 @@ public record DepartmentCreateRequest(
                 .id(null)
                 .name(name)
                 .path(createdPath)
+                .createdAt(LocalDate.now())
+                .disbandedAt(null)
                 .build();
     }
 }

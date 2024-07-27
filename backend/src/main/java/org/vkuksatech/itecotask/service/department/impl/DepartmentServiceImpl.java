@@ -19,22 +19,34 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     @Override
     public void create(DepartmentCreateRequest request) {
-        Department parentDepartment = departmentRepository
-                .findById(request.parentId())
-                .orElseThrow();
-
-        /**
+        /*
          * We get the path to the created division,
          * it should not contain spaces. For example:
          * TopDep.SubDep.SubSubDepNameWithoutSpaces
          */
-        String createdPath = parentDepartment.getPath()
-                        .concat("." + request.name()
-                                .replace(" ", "")
-                        );
+        String createdPath;
+        if(request.parentId() == null){
+            createdPath = request.name();
+        } else {
+            Department parentDepartment = departmentRepository
+                    .findById(request.parentId())
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Department not found")
+                    );
 
-        departmentRepository.save(
-                request.toDomain(createdPath)
+            createdPath = parentDepartment.getPath()
+                    .concat("." + request.name()
+                            .replace(" ", "")
+                    );
+        }
+
+        Department createdDepartment = request.toDomain(createdPath);
+
+        departmentRepository.saveDepartment(
+                createdDepartment.getCreatedAt(),
+                createdDepartment.getDisbandedAt(),
+                createdDepartment.getName(),
+                createdDepartment.getPath()
         );
     }
 
