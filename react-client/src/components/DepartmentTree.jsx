@@ -1,192 +1,229 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-    addEdge, MiniMap, Controls, Background, useNodesState, useEdgesState, useReactFlow, ReactFlow, ReactFlowProvider
-} from '@xyflow/react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import {
+  ReactFlow,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  useReactFlow,
+  ReactFlowProvider,
+} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import Modal from 'react-modal';
 
-const initialNodes = [];
-const initialEdges = [];
+Modal.setAppElement('#root');
 
-// Function to generate unique IDs
-let id = 1;
-const getId = () => `${id++}`;
-
-const DepartmentTree = () => {
-    const reactFlowWrapper = useRef(null);
-    const connectingNodeId = useRef(null);
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [newDepartmentName, setNewDepartmentName] = useState('');
-    const [selectedNode, setSelectedNode] = useState(null);
-    const [newNodePosition, setNewNodePosition] = useState({ x: 0, y: 0 });
-    const [nodeIdMap, setNodeIdMap] = useState(new Map());
-
-    const { screenToFlowPosition } = useReactFlow();
-
-    // Fetch initial department data
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await axios.get('http://localhost:8081/departments');
-                const data = response.data;
-    
-                console.log('Fetched data:', data); // Проверьте структуру данных
-    
-                // Helper function to recursively process departments
-                const processDepartments = (departments, parentId = null) => {
-                    return departments.flatMap(dept => {
-                        const id = dept.id;
-                        // Create the node and store the server ID
-                        const node = {
-                            id,
-                            position: { x: Math.random() * 500, y: Math.random() * 500 },
-                            data: { label: `Node ${id}` },
-                            origin: [0.5, 0.0],
-                        };
-    
-                        // Recursively process child departments
-                        const childData = Array.isArray(dept.childs) ? processDepartments(dept.childs, id) : { nodes: [], edges: [] };
-    
-                        // Create edges for the current node
-                        const edges = [...childData.edges];
-    
-                        // Create edge from parent to current node
-                        if (parentId) {
-                            edges.push({ id: `e${parentId}-${id}`, source: parentId, target: id });
-                        }
-    
-                        return [{ node, edges }];
-                    }).reduce((acc, { node, edges }) => {
-                        acc.nodes.push(node);
-                        acc.edges.push(...edges);
-                        return acc;
-                    }, { nodes: [], edges: [] });
-                };
-    
-                // Build the hierarchy
-                const { nodes: fetchedNodes, edges: fetchedEdges } = processDepartments(data);
-    
-                // Update state with the fetched nodes and edges
-                setNodes(fetchedNodes);
-                setEdges(fetchedEdges);
-            } catch (error) {
-                console.error('Failed to fetch departments:', error);
+const getMaxOffset = (data, currentCenter = 0, min_coordinates = 0, max_coordinates = 0) => {
+    if (data.childs && data.childs.length > 0) {
+        for(let i = 0; i < data.childs.length; i++){
+            const coordinates = getXcoordinates(data.childs.length, currentCenter, 180);
+            let { child_max, child_min } = getMaxOffset(data.childs[i], coordinates[i], min_coordinates, max_coordinates);
+            
+            if (min_coordinates > child_min) {
+                min_coordinates = child_min;
             }
-        };
-        fetchData();
-    }, [setEdges, setNodes]);
-
-    const onConnect = useCallback((params) => {
-        connectingNodeId.current = null;
-        setEdges((eds) => addEdge(params, eds));
-    }, [setEdges]);
-
-    const onConnectStart = useCallback((_, { nodeId }) => {
-        connectingNodeId.current = nodeId;
-    }, []);
-
-    const onConnectEnd = useCallback(
-        (event) => {
-            if (!connectingNodeId.current) return;
     
-            const targetIsPane = event.target.classList.contains('react-flow__pane');
-    
-            if (targetIsPane) {
-                const { x, y } = screenToFlowPosition({
-                    x: event.clientX,
-                    y: event.clientY,
-                });
-    
-                const id = getId();
-                const newNode = {
-                    id,
-                    position: { x, y },
-                    data: { label: `Node ${id}` },
-                };
-    
-                setNodes((nds) => nds.concat(newNode));
-                setEdges((eds) =>
-                    eds.concat({ id: `e${connectingNodeId.current}-${id}`, source: connectingNodeId.current, target: id }),
-                );
-                setIsFormOpen(true);
+            if (max_coordinates < child_max) {
+                max_coordinates = child_max;
             }
-        },
-        [screenToFlowPosition, setEdges, setNodes]
-    );
-    
-
-    const handleFormSubmit = async (e) => {
-        e.preventDefault();
-        const parentId = selectedNode ? nodeIdMap.get(selectedNode.id) : null;
-        try {
-            const response = await axios.post('http://localhost:8081/departments', { name: newDepartmentName, parentId });
-            const newNode = {
-                id: getId(),
-                data: { label: newDepartmentName },
-                position: newNodePosition,
-            };
-            setNodes((nds) => nds.concat(newNode));
-            if (selectedNode) {
-                const newEdge = { id: `e${selectedNode.id}-${newNode.id}`, source: selectedNode.id, target: newNode.id };
-                setEdges((eds) => eds.concat(newEdge));
-            }
-            setIsFormOpen(false);
-            setNewDepartmentName('');
-        } catch (error) {
-            alert('Failed to create department: ' + error.message);
         }
+    }
+
+    return { max_coordinates, min_coordinates };
+}
+
+const buildHierarchy = (data, nodes = [], edges = [], parentId = null, level = 0, xCenter = 0) => {
+    const xBaseOffset = 180;
+    const yBaseOffset = 100;
+
+    const spacing = 180;
+
+    const coordinates = getXcoordinates(data.length, xCenter, spacing);
+
+    data.forEach((item, index) => {
+        const nodeId = item.id.toString();
+        const nodeX = coordinates[index];
+        const nodeY = level * yBaseOffset;
+
+        xCenter = coordinates[index];
+
+        if(index === 1){
+            console.log(getMaxOffset(item))
+        }
+
+        nodes.push({
+            id: nodeId,
+            data: { label: item.name },
+            position: { x: nodeX, y: nodeY },
+        });
+
+        if (parentId) {
+            edges.push({
+                id: `e${parentId}-${nodeId}`,
+                source: parentId.toString(),
+                target: nodeId,
+            });
+        }
+
+        if (item.childs && item.childs.length > 0) {
+            buildHierarchy(item.childs, nodes, edges, nodeId, level + 1, xCenter);
+        }
+    });
+
+    return { nodes, edges };
+};
+
+// Пример функции getXcoordinates
+function getXcoordinates(count, centerX, spacing) {
+    let coordinates = [];
+    let offset = (count - 1) / 2 * spacing;
+
+    for (let i = 0; i < count; i++) {
+        let x = centerX - offset + i * spacing;
+        coordinates.push(x);
+    }
+
+    return coordinates;
+}
+
+const AddNodeOnEdgeDrop = () => {
+  const reactFlowWrapper = useRef(null);
+  const connectingNodeId = useRef(null);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const { screenToFlowPosition } = useReactFlow();
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [newNodeName, setNewNodeName] = useState('');
+  const [newNodePosition, setNewNodePosition] = useState({ x: 0, y: 0 });
+  const [newNodeId, setNewNodeId] = useState(null);
+
+  useEffect(() => {
+    axios.get('http://localhost:8081/departments').then((response) => {
+      const { nodes, edges } = buildHierarchy(response.data);
+      setNodes(nodes);
+      setEdges(edges);
+    });
+  }, []);
+
+  const openModal = () => setModalIsOpen(true);
+  const closeModal = () => setModalIsOpen(false);
+
+  const onConnect = useCallback((params) => {
+    connectingNodeId.current = null;
+    setEdges((eds) => addEdge(params, eds));
+  }, []);
+
+  const onConnectStart = useCallback((_, { nodeId }) => {
+    connectingNodeId.current = nodeId;
+  }, []);
+
+  const onConnectEnd = useCallback(
+    (event) => {
+      if (!connectingNodeId.current) return;
+
+      const targetIsPane = event.target.classList.contains('react-flow__pane');
+
+      if (targetIsPane) {
+        const id = -1;
+        const position = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+
+        setNewNodeId(id);
+        setNewNodePosition(position);
+        openModal();
+      }
+    },
+    [screenToFlowPosition]
+  );
+
+  const handleAddNode = () => {
+    const parentId = connectingNodeId.current;
+    const newNode = {
+      name: newNodeName || `Node ${newNodeId}`,
+      parentId: parentId ? parseInt(parentId) : null,
     };
 
-    return (
-        <div className="wrapper" ref={reactFlowWrapper}>
-            <div className="flex justify-between mb-4">
-                <h2 className="text-xl font-bold">Department Structure</h2>
-                <button onClick={() => { setSelectedNode(null); setNewNodePosition({ x: Math.random() * 500, y: Math.random() * 500 }); setIsFormOpen(true); }} className="py-2 px-4 bg-blue-500 text-white rounded">Add Root Node</button>
-            </div>
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onConnectStart={onConnectStart}
-                onConnectEnd={onConnectEnd}
-                onNodeDoubleClick={(event, node) => { setSelectedNode(node); setNewNodePosition({ x: node.position.x + 100, y: node.position.y + 100 }); setIsFormOpen(true); }}
-                fitView
-                fitViewOptions={{ padding: 2 }}
-            >
-                <MiniMap />
-                <Controls />
-                <Background />
-            </ReactFlow>
-            {isFormOpen && (
-                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-                    <div className="bg-white p-4 rounded shadow-md">
-                        <h3 className="text-lg font-bold mb-2">Create Department</h3>
-                        <form onSubmit={handleFormSubmit} className="space-y-4">
-                            <div>
-                                <label className="block mb-2">Department Name:</label>
-                                <input
-                                    type="text"
-                                    value={newDepartmentName}
-                                    onChange={(e) => setNewDepartmentName(e.target.value)}
-                                    required
-                                    className="w-full p-2 border border-gray-300 rounded"
-                                />
-                            </div>
-                            <button type="submit" className="py-2 px-4 bg-blue-500 text-white rounded">Create</button>
-                        </form>
-                    </div>
-                </div>
-            )}
+    axios
+      .post('http://localhost:8081/departments', newNode)
+      .then((response) => {
+        const createdNode = response.data;
+        const createdNodeId = createdNode.id.toString();
+
+        const newNode = {
+          id: createdNodeId,
+          position: newNodePosition,
+          data: { label: createdNode.name },
+          origin: [0.5, 0.0],
+        };
+
+        setNodes((nds) => nds.concat(newNode));
+        setEdges((eds) =>
+          eds.concat({
+            id: `e${parentId}-${createdNodeId}`,
+            source: parentId,
+            target: createdNodeId,
+          })
+        );
+      })
+      .catch((error) => {
+        console.error('Error creating node:', error);
+      });
+
+    setNewNodeName('');
+    closeModal();
+  };
+
+  return (
+    <div className="wrapper" ref={reactFlowWrapper}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
+        fitView
+        fitViewOptions={{ padding: 2 }}
+        nodeOrigin={[0.5, 0]}
+      />
+      <Modal
+        isOpen={modalIsOpen}
+        onRequestClose={closeModal}
+        className="modal bg-white p-8 rounded-lg shadow-lg max-w-md mx-auto mt-20"
+        overlayClassName="overlay fixed inset-0 bg-black bg-opacity-50"
+        contentLabel="New Node Name"
+      >
+        <h2 className="text-xl font-bold mb-4">Enter Node Name</h2>
+        <input
+          type="text"
+          value={newNodeName}
+          onChange={(e) => setNewNodeName(e.target.value)}
+          className="border p-2 w-full mb-4"
+        />
+        <div className="flex justify-end">
+          <button
+            onClick={handleAddNode}
+            className="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600"
+          >
+            Add Node
+          </button>
+          <button
+            onClick={closeModal}
+            className="bg-gray-500 text-white p-2 rounded-lg hover:bg-gray-600 ml-2"
+          >
+            Cancel
+          </button>
         </div>
-    );
+      </Modal>
+    </div>
+  );
 };
 
 export default () => (
-    <ReactFlowProvider>
-        <DepartmentTree />
-    </ReactFlowProvider>
+  <ReactFlowProvider>
+    <AddNodeOnEdgeDrop />
+  </ReactFlowProvider>
 );
